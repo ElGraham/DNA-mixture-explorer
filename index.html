@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA Mixture Explorer | AP0642</title>
+<style>
+:root{--navy:#14213D;--teal:#0E8A8A;--teal-l:#E3F3F3;--amber:#D97706;--red:#DC2626;--green:#16A34A;--blue:#2563EB;--ink:#1F2937;--mute:#6B7280;--line:#D1D5DB;--bg:#F3F6FA;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;font-family:Calibri,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45}
+header{background:var(--navy);color:#fff;padding:14px 22px;border-bottom:4px solid var(--teal)}
+header h1{margin:0;font-family:Georgia,serif;font-size:22px}
+header p{margin:2px 0 0;color:#cbd5e1;font-size:13.5px}
+.settings{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;font-size:13px}
+.settings label{display:flex;align-items:center;gap:6px;color:#e5e7eb}
+.settings input{width:64px;padding:3px 5px;border-radius:4px;border:1px solid #475569;background:#0f1a30;color:#fff}
+nav{display:flex;gap:4px;padding:10px 22px 0;flex-wrap:wrap;background:var(--bg);position:sticky;top:0;z-index:5}
+nav button{border:1px solid var(--line);border-bottom:none;background:#e9eef5;padding:9px 16px;border-radius:8px 8px 0 0;font:inherit;font-weight:600;color:var(--mute);cursor:pointer}
+nav button[aria-selected=true]{background:var(--card);color:var(--teal);border-color:var(--teal);border-bottom:2px solid var(--card);margin-bottom:-1px}
+main{padding:0 22px 40px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:18px;display:none}
+.panel.active{display:block}
+.row{display:flex;gap:18px;flex-wrap:wrap}
+.col{flex:1 1 360px;min-width:300px}
+h2{font-family:Georgia,serif;font-size:18px;color:var(--navy);margin:0 0 8px}
+h3{font-size:15px;margin:14px 0 6px;color:var(--navy)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:center}
+th{background:var(--navy);color:#fff;font-weight:600}
+tbody tr:nth-child(even){background:#f8fafc}
+tr.sel{outline:2px solid var(--amber);outline-offset:-2px;background:#fff7e6!important}
+tr.click{cursor:pointer}
+input[type=text],input[type=number],select{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:5px}
+input[type=number]{width:90px}
+button.btn{font:inherit;font-weight:600;background:var(--teal);color:#fff;border:none;border-radius:6px;padding:7px 12px;cursor:pointer}
+button.btn.alt{background:#fff;color:var(--teal);border:1px solid var(--teal)}
+button.btn:hover{filter:brightness(.95)}
+.pill{display:inline-block;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:700;color:#fff}
+.ok{background:var(--green)}.bad{background:var(--red)}.warn{background:var(--amber)}.na{background:var(--mute)}
+.callout{background:var(--teal-l);border-left:5px solid var(--teal);padding:10px 12px;border-radius:4px;margin:10px 0;font-size:14px}
+.callout.amber{background:#fff4e0;border-color:var(--amber)}
+.callout.red{background:#fdeaea;border-color:var(--red)}
+.note{color:var(--mute);font-size:12.5px}
+.muted{color:var(--mute)}
+svg text{font-family:Calibri,"Segoe UI",system-ui,sans-serif}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.legend i{display:inline-block;width:14px;height:4px;border-radius:2px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff}
+.mono{font-family:Consolas,Menlo,monospace}
+td.l{text-align:left}
+.locusIn{width:100%;min-width:230px}
+.small{font-size:12px}
+.sr{position:absolute;left:-9999px}
+@media print{nav,.settings,button{display:none}.panel{display:block!important;border:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>DNA Mixture Explorer</h1>
+  <p>AP0642 teaching tool. Explores two-person mixtures using peak heights, heterozygote balance and the residuals method. For learning only, not validated for casework.</p>
+  <div class="settings">
+    <label>Analytical threshold (rfu) <input id="AT" type="number" value="50" min="0"></label>
+    <label>Stochastic threshold (rfu) <input id="ST" type="number" value="200" min="0"></label>
+    <label>Hb threshold <input id="HB" type="number" value="0.6" step="0.05" min="0" max="1"></label>
+  </div>
+</header>
+<nav role="tablist" aria-label="Tools">
+  <button role="tab" aria-selected="true" data-tab="locus">1. Single locus</button>
+  <button role="tab" aria-selected="false" data-tab="profile">2. Whole profile</button>
+  <button role="tab" aria-selected="false" data-tab="checks">3. Artefact and peak checks</button>
+  <button role="tab" aria-selected="false" data-tab="help">4. Method and help</button>
+</nav>
+<main>
+<!-- ============ TAB 1 ============ -->
+<section id="tab-locus" class="panel active" role="tabpanel">
+  <div class="row">
+    <div class="col" style="flex:0 1 380px">
+      <h2>Enter peak heights</h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label>Number of alleles
+          <select id="nAlleles"><option>2</option><option>3</option><option selected>4</option></select></label>
+        <span class="note">Allele names are labels only.</span>
+      </div>
+      <table id="alleleTable"><thead><tr><th>Allele</th><th>Peak height (rfu)</th></tr></thead><tbody></tbody></table>
+      <div style="margin:10px 0;display:flex;flex-wrap:wrap;gap:6px">
+        <button class="btn alt" data-preset="4">Lecture 4-peak</button>
+        <button class="btn alt" data-preset="3">Lecture 3-peak</button>
+        <button class="btn alt" data-preset="2">Lecture 2-peak</button>
+      </div>
+      <div class="card">
+        <label><input type="checkbox" id="fixMx"> Fix the mixture proportion (Mx)</label>
+        <div id="fixBox" style="display:none;margin-top:6px">
+          <input type="range" id="mxSlider" min="0.5" max="0.95" step="0.01" value="0.75" style="width:70%">
+          <input type="number" id="mxNum" min="0.5" max="0.95" step="0.01" value="0.75">
+          <div class="note">Mx is the share of DNA from the major (first-listed) contributor. Use the value you estimated from your four-peak loci.</div>
+        </div>
+      </div>
+      <div id="locusWarn"></div>
+      <h3>Schematic electropherogram</h3>
+      <div id="epg"></div>
+    </div>
+    <div class="col">
+      <h2>Results</h2>
+      <div id="summary"></div>
+      <h3>All genotype combinations, best fit first</h3>
+      <div style="overflow-x:auto"><table id="rankTable"><thead><tr><th>#</th><th>Major</th><th>Minor</th><th>Mx</th><th>Major : minor</th><th>Residual</th><th>Hb major</th><th>Hb minor</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Click a row to highlight it on the charts. Residual is the sum of squared differences between observed and expected allele proportions (smaller is better). Hb is calculated after subtracting the other contributor's expected share from shared alleles, as in the lecture.</p>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card"><h3 style="margin-top:0">Residual vs Mx</h3><div id="curveChart"></div><div id="curveLegend" class="legend"></div></div>
+    <div class="card"><h3 style="margin-top:0">Observed vs expected allele proportions</h3><div id="barChart"></div><div class="note" id="barNote"></div></div>
+  </div>
+</section>
+
+<!-- ============ TAB 2 ============ -->
+<section id="tab-profile" class="panel" role="tabpanel">
+  <h2>Whole profile workflow</h2>
+  <p>Type each locus as <span class="mono">allele:height</span> pairs, for example <span class="mono">15:953 17:760 18:304</span>. Step 1: estimate Mx from the four-peak loci. Step 2: use that Mx to rank the genotypes at three- and two-peak loci.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn alt" id="loadEx">Load lecture example</button>
+    <button class="btn alt" id="loadSGM">Load blank SGM Plus loci</button>
+    <button class="btn alt" id="addLocus">Add locus</button>
+    <button class="btn alt" id="clearProf">Clear</button>
+    <button class="btn" id="exportCsv">Export results (CSV)</button>
+  </div>
+  <div class="row">
+    <div class="col" style="flex:2 1 560px;overflow-x:auto"><table id="profTable"><thead><tr><th>Locus</th><th>Peaks (allele:height)</th><th>Alleles</th><th>Major</th><th>Minor</th><th>Residual</th><th>Hb major / minor</th><th>Call</th></tr></thead><tbody></tbody></table></div>
+    <div class="col" style="flex:1 1 280px">
+      <div class="card"><h3 style="margin-top:0">Profile summary</h3><div id="profSummary"></div>
+        <label style="display:block;margin-top:8px">Override Mx <input type="number" id="mxOverride" min="0.5" max="0.95" step="0.01" placeholder="auto"></label>
+        <div class="note">Leave blank to use the median of the four-peak loci.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB 3 ============ -->
+<section id="tab-checks" class="panel" role="tabpanel">
+  <div class="grid2">
+    <div class="card"><h2>Peak triage</h2>
+      <p class="note">Answer for the peak you are looking at. The first matching feature gives the most likely explanation.</p>
+      <div id="triage"></div><div id="triageOut" class="callout" style="margin-top:10px"></div></div>
+    <div class="card"><h2>Stutter check</h2>
+      <label>Parent allele height (rfu) <input type="number" id="stParent" value="1500"></label><br><br>
+      <label>Candidate peak height (rfu) <input type="number" id="stPeak" value="72"></label><br><br>
+      <label>Stutter filter for this locus (%) <input type="number" id="stFilter" value="12" step="0.5"></label>
+      <div id="stOut" class="callout" style="margin-top:10px"></div>
+      <p class="note">Use your validated locus- and allele-specific filter in practice. The default value here is only a placeholder.</p></div>
+    <div class="card"><h2>Heterozygote balance</h2>
+      <label>Peak 1 (rfu) <input type="number" id="hb1" value="600"></label>
+      <label style="margin-left:8px">Peak 2 (rfu) <input type="number" id="hb2" value="500"></label>
+      <div id="hbOut" class="callout" style="margin-top:10px"></div></div>
+    <div class="card"><h2>Minimum number of contributors</h2>
+      <p class="note">Enter the number of alleles at each locus, separated by spaces or commas.</p>
+      <input type="text" id="nocIn" value="3 5 2 4" style="width:100%">
+      <div id="nocOut" class="callout" style="margin-top:10px"></div></div>
+  </div>
+</section>
+
+<!-- ============ TAB 4 ============ -->
+<section id="tab-help" class="panel" role="tabpanel">
+  <h2>How the residuals method works</h2>
+  <ol>
+    <li>Add up all peak heights at the locus and convert each peak to a proportion of the total.</li>
+    <li>List every pair of genotypes (major, minor) that could explain all the observed alleles, assuming no drop-out.</li>
+    <li>For a trial mixture proportion Mx, the expected proportion of each allele is Mx x (major's share of that allele) + (1 - Mx) x (minor's share). A heterozygote gives each allele a half share; a homozygote gives it a full share.</li>
+    <li>The residual is the sum of squared differences between observed and expected proportions. The pair with the smallest residual fits best, and the Mx where it is smallest estimates the mixture proportion.</li>
+  </ol>
+  <div class="callout"><strong>Why fix Mx?</strong> With four peaks the data can pin down both the genotypes and Mx. With two or three peaks several combinations can fit equally well when Mx is free, so use the Mx from your four-peak loci, as the tutorial workflow does.</div>
+  <h3>Limits to keep in mind</h3>
+  <ul>
+    <li>It assumes exactly two contributors and no drop-out or drop-in. Peaks below the stochastic threshold are flagged.</li>
+    <li>Stutter, degradation and locus-specific amplification effects are not modelled. Remove artefacts before entering heights.</li>
+    <li>Amelogenin is handled with the lecture calculation only, not with genotype combinations.</li>
+    <li>Results are a teaching aid. Casework uses validated probabilistic software (FSR-G-223) and documented reasoning (FSR-G-222).</li>
+    <li>The "clear/ambiguous" call is a classroom heuristic: ambiguous when the second-best combination has a residual less than twice the best.</li>
+  </ul>
+  <h3>Differences from the earlier Excel macro workbook</h3>
+  <p>The same residual model is used. This version adds automatic search for the best Mx, adjusted heterozygote balance, thresholds, charts, a whole-profile workflow and no macros.</p>
+</section>
+</main>
+
+<script>
+// Mixture Explorer core maths (shared by the web app and by tests)
+const MX_MIN = 0.5, MX_MAX = 0.95;
+function genotypes(alleles){ const g=[]; for(let i=0;i<alleles.length;i++) for(let j=i;j<alleles.length;j++) g.push([i,j]); return g; }
+function counts(g,n){ const c=new Array(n).fill(0); c[g[0]]++; c[g[1]]++; return c; }
+function combos(n){
+  const gs=genotypes(new Array(n).fill(0)); const out=[];
+  for(const a of gs) for(const b of gs){
+    const ca=counts(a,n), cb=counts(b,n);
+    if(ca.every((v,i)=>v+cb[i]>0)) out.push({maj:a,min:b,cmaj:ca,cmin:cb});
+  }
+  return out;
+}
+function name(g,alleles){ return alleles[g[0]]+","+alleles[g[1]]; }
+function residualAt(p,c,m){ let r=0; for(let i=0;i<p.length;i++){ const e=m*c.cmaj[i]/2+(1-m)*c.cmin[i]/2; r+=(p[i]-e)**2; } return r; }
+function bestMx(p,c){
+  let num=0,den=0; for(let i=0;i<p.length;i++){ const a=c.cmin[i]/2, b=(c.cmaj[i]-c.cmin[i])/2; num+=b*(p[i]-a); den+=b*b; }
+  if(den===0) return null; // not identifiable (identical genotypes)
+  return Math.min(MX_MAX,Math.max(MX_MIN,num/den));
+}
+// Hb after subtracting the other contributor's expected share from shared alleles (as in the lecture)
+function hbAdjusted(h,c,m){
+  const T=h.reduce((a,b)=>a+b,0), n=h.length;
+  const res={maj:null,min:null};
+  const side=(own,other,share,otherShare)=>{ // own counts, other counts
+    const idx=[]; for(let i=0;i<n;i++) if(own[i]>0) idx.push(i);
+    if(idx.length<2) return null; // homozygote: Hb not applicable
+    const adj=idx.map(i=>Math.max(0,h[i]-(other[i]/2)*otherShare*T));
+    return Math.min(...adj)/Math.max(...adj);
+  };
+  res.maj=side(c.cmaj,c.cmin,m,(1-m)); res.min=side(c.cmin,c.cmaj,1-m,m);
+  return res;
+}
+function evaluate(heights,mxFixed){
+  const n=heights.length, T=heights.reduce((a,b)=>a+b,0), p=heights.map(v=>v/T);
+  return combos(n).map(c=>{
+    let m; if(mxFixed!=null) m=mxFixed; else { const b=bestMx(p,c); m=b==null?0.5:b; }
+    const identifiable = bestMx(p,c)!==null;
+    const r=residualAt(p,c,m); const hb=hbAdjusted(heights,c,m);
+    return Object.assign({},c,{mx:m,res:r,rms:Math.sqrt(r/n)*100,hb,identifiable,ratio:m/(1-m)});
+  }).sort((a,b)=>a.res-b.res);
+}
+function curve(heights,c,steps=46){ const T=heights.reduce((a,b)=>a+b,0), p=heights.map(v=>v/T); const pts=[]; for(let i=0;i<=steps;i++){ const m=MX_MIN+(MX_MAX-MX_MIN)*i/steps; pts.push([m,residualAt(p,c,m)]); } return pts; }
+function parseLocus(str){
+  const out=[]; if(!str) return out;
+  str.split(/[;,\s]+/).filter(Boolean).forEach(tok=>{ const m=tok.match(/^([A-Za-z0-9.]+)[:=]([0-9.]+)$/); if(m) out.push({a:m[1],h:parseFloat(m[2])}); });
+  return out;
+}
+function median(a){ const s=[...a].sort((x,y)=>x-y); const k=Math.floor(s.length/2); return s.length? (s.length%2? s[k]:(s[k-1]+s[k])/2):null; }
+function amelogenin(x,y){ // lecture method: assume X/Y balanced in the male
+  const male=2*y, female=x-y; const lines=[];
+  if(female>0 && y>0) { return { maleHeight:male, femaleHeight:female, ratioFemaleMajor: female/male, ratioMaleMajor: male/Math.max(female,1e-9), femaleMajor: female>=male }; }
+  return null;
+}
+
+</script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const PALETTE=["#0E8A8A","#D97706","#2563EB","#DC2626","#16A34A","#7C3AED","#DB2777","#0891B2","#65A30D","#EA580C","#475569","#0F766E"];
+const fmt=(x,d=2)=>x==null||isNaN(x)?"n/a":x.toFixed(d);
+const cfg=()=>({AT:+$("#AT").value||0,ST:+$("#ST").value||0,HB:+$("#HB").value||0.6});
+
+/* ---------- tabs ---------- */
+$$("nav button").forEach(b=>b.addEventListener("click",()=>{ $$("nav button").forEach(x=>x.setAttribute("aria-selected",x===b)); $$(".panel").forEach(p=>p.classList.remove("active")); $("#tab-"+b.dataset.tab).classList.add("active"); }));
+["AT","ST","HB"].forEach(id=>$("#"+id).addEventListener("input",()=>{renderLocus();renderProfile();}));
+
+/* ---------- Tab 1: single locus ---------- */
+let L={alleles:["13","15","18","19"],heights:[789,762,246,263],sel:0};
+const presets={4:{a:["13","15","18","19"],h:[789,762,246,263]},3:{a:["17","18","20"],h:[982,762,246]},2:{a:["10","11"],h:[982,241]}};
+function buildAlleleTable(){
+  const n=+$("#nAlleles").value; const tb=$("#alleleTable tbody"); tb.innerHTML="";
+  for(let i=0;i<n;i++){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><input type="text" size="5" value="${L.alleles[i]??String.fromCharCode(65+i)}" aria-label="Allele ${i+1} name" data-i="${i}" data-k="a"></td><td><input type="number" min="0" value="${L.heights[i]??500}" aria-label="Allele ${i+1} height" data-i="${i}" data-k="h"></td>`;
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",()=>{ const i=+inp.dataset.i; if(inp.dataset.k==="a") L.alleles[i]=inp.value||String.fromCharCode(65+i); else L.heights[i]=+inp.value||0; L.sel=0; renderLocus(); }));
+  L.alleles.length=n; L.heights.length=n;
+}
+$("#nAlleles").addEventListener("change",()=>{const n=+$("#nAlleles").value; while(L.alleles.length<n){L.alleles.push(String.fromCharCode(65+L.alleles.length));L.heights.push(500);} buildAlleleTable(); L.sel=0; renderLocus();});
+$$("[data-preset]").forEach(b=>b.addEventListener("click",()=>{const p=presets[b.dataset.preset]; L.alleles=[...p.a]; L.heights=[...p.h]; $("#nAlleles").value=p.a.length; L.sel=0; if(p.a.length<4){ $("#fixMx").checked=true; $("#fixBox").style.display="block"; } else { $("#fixMx").checked=false; $("#fixBox").style.display="none"; } buildAlleleTable(); renderLocus();}));
+$("#fixMx").addEventListener("change",()=>{ $("#fixBox").style.display=$("#fixMx").checked?"block":"none"; L.sel=0; renderLocus(); });
+$("#mxSlider").addEventListener("input",()=>{ $("#mxNum").value=$("#mxSlider").value; L.sel=0; renderLocus(); });
+$("#mxNum").addEventListener("input",()=>{ let v=Math.min(0.95,Math.max(0.5,+$("#mxNum").value||0.75)); $("#mxSlider").value=v; L.sel=0; renderLocus(); });
+
+function hbPill(v,hbT,applicable=true){ if(v==null||!applicable) return '<span class="pill na">n/a</span>'; return `<span class="pill ${v>=hbT?"ok":"bad"}">${fmt(v)}</span>`; }
+let lastRank=[];
+function renderLocus(){
+  const c=cfg(); const hs=L.heights.map(v=>Math.max(0,+v||0)); const names=L.alleles;
+  const warn=[]; const low=hs.map((h,i)=>h<c.AT?names[i]:null).filter(Boolean); const mid=hs.map((h,i)=>h>=c.AT&&h<c.ST?names[i]:null).filter(Boolean);
+  if(hs.some(h=>h<=0)){ $("#summary").innerHTML='<div class="callout red">Enter a peak height above zero for every allele.</div>'; ["#rankTable tbody","#curveChart","#barChart","#epg","#curveLegend"].forEach(s=>$(s).innerHTML=""); $("#locusWarn").innerHTML=""; return; }
+  if(low.length) warn.push(`Allele${low.length>1?"s":""} ${low.join(", ")} below the analytical threshold (${c.AT} rfu): would not be called. Remove before analysis.`);
+  if(mid.length) warn.push(`Allele${mid.length>1?"s":""} ${mid.join(", ")} between AT and ST: drop-out is possible, and this method assumes none.`);
+  $("#locusWarn").innerHTML=warn.map(w=>`<div class="callout amber small">${w}</div>`).join("");
+  const fixed=$("#fixMx").checked? (+$("#mxNum").value||0.75):null;
+  const rank=evaluate(hs,fixed); lastRank=rank; if(L.sel>=rank.length) L.sel=0;
+  const best=rank[0], second=rank[1];
+  const n=hs.length; const ambiguous= second && second.res<2*best.res+1e-9;
+  let s=`<div class="callout"><strong>Best fit:</strong> major ${name(best.maj,names)} &nbsp;+&nbsp; minor ${name(best.min,names)}<br>Mx = ${fmt(best.mx,2)} &nbsp;(major : minor = ${fmt(best.ratio,1)} : 1) &nbsp; residual ${fmt(best.res,4)}${fixed!=null?' &nbsp;<span class="pill warn">Mx fixed</span>':''}</div>`;
+  if(fixed==null && n<4) s+=`<div class="callout amber small">With ${n} peaks and Mx left free, several combinations can fit almost equally well (see the table). Fix Mx from your four-peak loci to discriminate between them.</div>`;
+  else if(ambiguous) s+=`<div class="callout amber small">Ambiguous: the second-best combination (${name(second.maj,names)} + ${name(second.min,names)}) is within a factor of two of the best residual. Consider peak heights, heterozygote balance and other loci before choosing.</div>`;
+  else s+=`<div class="callout small">The best combination is clearly better than the next (${fmt(second.res/Math.max(best.res,1e-9),1)} x lower residual).</div>`;
+  $("#summary").innerHTML=s;
+  const tb=$("#rankTable tbody"); tb.innerHTML="";
+  rank.forEach((r,i)=>{
+    const ok=(r.hb.maj==null||r.hb.maj>=c.HB)&&(r.hb.min==null||r.hb.min>=c.HB);
+    const tr=document.createElement("tr"); tr.className="click"+(i===L.sel?" sel":"");
+    tr.innerHTML=`<td>${i+1}</td><td>${name(r.maj,names)}</td><td>${name(r.min,names)}</td><td>${r.identifiable||fixed!=null?fmt(r.mx):"n/a"}</td><td>${r.identifiable||fixed!=null?fmt(r.ratio,1)+" : 1":"n/a"}</td><td>${fmt(r.res,4)}</td><td>${hbPill(r.hb.maj,c.HB,r.identifiable)}</td><td>${hbPill(r.hb.min,c.HB,r.identifiable)}</td><td>${i===0?'<span class="pill ok">Best</span> ':""}${ok?"":'<span class="pill bad">Hb fail</span>'}</td>`;
+    tr.addEventListener("click",()=>{L.sel=i;renderLocus();}); tb.appendChild(tr);
+  });
+  drawCurves(hs,rank,fixed,names); drawBars(hs,rank,names); drawEPG(hs,names,c);
+}
+function drawCurves(hs,rank,fixed,names){
+  const W=560,Hh=300,m={l:52,r:14,t:12,b:40}; const pw=W-m.l-m.r, ph=Hh-m.t-m.b;
+  const show=rank.filter(r=>r.identifiable||true);
+  const curves=show.map(r=>curve(hs,r)); let ymax=0; curves.forEach(cv=>cv.forEach(([x,y])=>{ymax=Math.max(ymax,y);})); ymax=Math.min(ymax,Math.max(0.3,rank[0].res*40)); ymax=Math.max(ymax,0.05);
+  const X=x=>m.l+(x-MX_MIN)/(MX_MAX-MX_MIN)*pw, Y=y=>m.t+ph-(Math.min(y,ymax)/ymax)*ph;
+  let svg=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Residual versus mixture proportion for each genotype combination">`;
+  for(let i=0;i<=5;i++){ const y=ymax*i/5; svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="#E5E7EB"/><text x="${m.l-6}" y="${Y(y)+4}" font-size="11" text-anchor="end" fill="#6B7280">${y.toFixed(2)}</text>`; }
+  for(let x=0.5;x<=0.951;x+=0.05) svg+=`<text x="${X(x)}" y="${Hh-m.b+16}" font-size="11" text-anchor="middle" fill="#6B7280">${x.toFixed(2)}</text>`;
+  svg+=`<text x="${m.l+pw/2}" y="${Hh-4}" font-size="12" text-anchor="middle" fill="#374151">Mx (major contributor proportion)</text><text transform="translate(13 ${m.t+ph/2}) rotate(-90)" font-size="12" text-anchor="middle" fill="#374151">Sum of squared residuals</text>`;
+  const order=show.map((r,i)=>i).sort((a,b)=>(b===L.sel)-(a===L.sel)||b-a);
+  const drawn=[]; order.forEach(i=>{ const isSel=i===L.sel, isBest=i===0; const col=isSel?"#D97706":isBest?"#0E8A8A":"#C7CED8"; const w=isSel?3.2:isBest?2.6:1.2;
+    const d=curves[i].map(([x,y],k)=>(k?"L":"M")+X(x).toFixed(1)+" "+Y(y).toFixed(1)).join(" ");
+    drawn.push({i,svg:`<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"><title>${name(show[i].maj,names)} + ${name(show[i].min,names)}</title></path>`,z:isSel?3:isBest?2:1}); });
+  drawn.sort((a,b)=>a.z-b.z).forEach(d=>svg+=d.svg);
+  if(fixed!=null) svg+=`<line x1="${X(fixed)}" x2="${X(fixed)}" y1="${m.t}" y2="${m.t+ph}" stroke="#DC2626" stroke-dasharray="5 4"/><text x="${X(fixed)+4}" y="${m.t+12}" font-size="11" fill="#DC2626">Mx fixed</text>`;
+  const sr=show[L.sel]; if(sr.identifiable||fixed!=null){ const x=sr.mx; const y=residualAt(hs.map(v=>v/hs.reduce((a,b)=>a+b,0)),sr,x); svg+=`<circle cx="${X(x)}" cy="${Y(y)}" r="5" fill="#D97706" stroke="#fff" stroke-width="1.5"/>`; }
+  svg+="</svg>"; $("#curveChart").innerHTML=svg;
+  $("#curveLegend").innerHTML=`<span><i style="background:#0E8A8A"></i>best fit</span><span><i style="background:#D97706"></i>selected row</span><span><i style="background:#C7CED8"></i>other combinations</span><span class="muted">Lower is better. Hover a line for its genotypes.</span>`;
+}
+function drawBars(hs,rank,names){
+  const r=rank[L.sel]; const T=hs.reduce((a,b)=>a+b,0); const p=hs.map(v=>v/T); const e=p.map((_,i)=>r.mx*r.cmaj[i]/2+(1-r.mx)*r.cmin[i]/2);
+  const W=560,Hh=300,m={l:46,r:14,t:16,b:44}; const pw=W-m.l-m.r, ph=Hh-m.t-m.b; const ymax=Math.max(0.5,...p,...e)*1.1; const Y=y=>m.t+ph-(y/ymax)*ph; const gw=pw/hs.length;
+  let svg=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Observed versus expected allele proportions">`;
+  for(let i=0;i<=5;i++){ const y=ymax*i/5; svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="#E5E7EB"/><text x="${m.l-6}" y="${Y(y)+4}" font-size="11" text-anchor="end" fill="#6B7280">${y.toFixed(2)}</text>`; }
+  p.forEach((v,i)=>{ const x0=m.l+i*gw+gw*0.12, bw=gw*0.34;
+    svg+=`<rect x="${x0}" y="${Y(v)}" width="${bw}" height="${m.t+ph-Y(v)}" fill="#9CA3AF"/><rect x="${x0+bw+3}" y="${Y(e[i])}" width="${bw}" height="${m.t+ph-Y(e[i])}" fill="#0E8A8A"/>`;
+    svg+=`<text x="${x0+bw/2}" y="${Y(v)-4}" font-size="10.5" text-anchor="middle" fill="#374151">${v.toFixed(2)}</text><text x="${x0+bw*1.5+3}" y="${Y(e[i])-4}" font-size="10.5" text-anchor="middle" fill="#0E8A8A">${e[i].toFixed(2)}</text>`;
+    svg+=`<text x="${m.l+i*gw+gw/2}" y="${Hh-m.b+16}" font-size="12.5" font-weight="700" text-anchor="middle" fill="#14213D">${names[i]}</text>`; });
+  svg+=`<rect x="${m.l}" y="${Hh-16}" width="10" height="10" fill="#9CA3AF"/><text x="${m.l+14}" y="${Hh-7}" font-size="11" fill="#374151">observed</text><rect x="${m.l+80}" y="${Hh-16}" width="10" height="10" fill="#0E8A8A"/><text x="${m.l+94}" y="${Hh-7}" font-size="11" fill="#374151">expected</text></svg>`;
+  $("#barChart").innerHTML=svg; $("#barNote").textContent=`Selected: major ${name(r.maj,names)} + minor ${name(r.min,names)} at Mx = ${fmt(r.mx)}. The closer the bars match, the better the fit.`;
+}
+function drawEPG(hs,names,c){
+  const W=380,Hh=170,m={l:8,r:8,t:10,b:26}; const pw=W-m.l-m.r, ph=Hh-m.t-m.b; const n=hs.length; const ymax=Math.max(...hs,c.ST)*1.12; const Y=y=>m.t+ph-(y/ymax)*ph;
+  let svg=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Schematic electropherogram of the entered peaks">`;
+  svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(c.AT)}" y2="${Y(c.AT)}" stroke="#D97706" stroke-dasharray="4 3"/><text x="${W-m.r}" y="${Y(c.AT)-3}" font-size="10" text-anchor="end" fill="#D97706">AT</text>`;
+  svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(c.ST)}" y2="${Y(c.ST)}" stroke="#DC2626" stroke-dasharray="4 3"/><text x="${W-m.r}" y="${Y(c.ST)-3}" font-size="10" text-anchor="end" fill="#DC2626">ST</text>`;
+  let d=`M${m.l} ${Y(0)}`; const sig=pw/(n*9);
+  for(let px=0;px<=pw;px+=1.5){ let y=0; hs.forEach((h,i)=>{ const mu=pw*(i+0.5)/n; y+=h*Math.exp(-0.5*((px-mu)/sig)**2); }); d+=` L${(m.l+px).toFixed(1)} ${Y(y).toFixed(1)}`; }
+  svg+=`<path d="${d}" fill="none" stroke="#2563EB" stroke-width="1.6"/>`;
+  hs.forEach((h,i)=>{ const x=m.l+pw*(i+0.5)/n; svg+=`<text x="${x}" y="${Hh-8}" font-size="12" font-weight="700" text-anchor="middle" fill="#14213D">${names[i]}</text><text x="${x}" y="${Y(h)-4}" font-size="10" text-anchor="middle" fill="#374151">${h}</text>`; });
+  svg+="</svg>"; $("#epg").innerHTML=svg;
+}
+
+/* ---------- Tab 2: whole profile ---------- */
+const SGM=["D3S1358","vWA","D16S539","D2S1338","AMEL","D8S1179","D21S11","D18S51","D19S433","TH01","FGA"];
+let rows=SGM.map(n=>({name:n,text:""}));
+const LECT=[{name:"Locus 1 (4 peaks)",text:"13:789 15:762 18:246 19:263"},{name:"Locus 2 (3 peaks)",text:"17:982 18:762 20:246"},{name:"Locus 3 (2 peaks)",text:"10:982 11:241"},{name:"AMEL",text:"X:1703 Y:241"}];
+function buildProfile(){
+  const tb=$("#profTable tbody"); tb.innerHTML="";
+  rows.forEach((r,i)=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td><input type="text" value="${r.name}" size="14" data-i="${i}" data-k="name" aria-label="Locus name"></td><td><input class="locusIn mono" type="text" value="${r.text}" data-i="${i}" data-k="text" placeholder="15:953 17:760 18:304" aria-label="Peaks for ${r.name}"></td><td class="c-al"></td><td class="c-maj"></td><td class="c-min"></td><td class="c-res"></td><td class="c-hb"></td><td class="c-call"></td>`; tb.appendChild(tr); });
+  tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",()=>{ rows[+inp.dataset.i][inp.dataset.k]=inp.value; renderProfile(); }));
+}
+let profileResults=[];
+function renderProfile(){
+  const c=cfg(); const trs=$$("#profTable tbody tr"); if(!trs.length) return;
+  const parsed=rows.map(r=>{ const pk=parseLocus(r.text).filter(p=>p.h>=c.AT); return {name:r.name,pk,isAmel:/amel/i.test(r.name)}; });
+  // step 1: Mx from 4-peak loci
+  const mxs=[]; parsed.forEach(p=>{ if(!p.isAmel && p.pk.length===4){ const rk=evaluate(p.pk.map(x=>x.h)); p.best4=rk[0]; mxs.push(rk[0].mx); } });
+  const auto=median(mxs); const ov=parseFloat($("#mxOverride").value); const useMx=!isNaN(ov)?Math.min(0.95,Math.max(0.5,ov)):auto;
+  profileResults=[];
+  parsed.forEach((p,i)=>{ const tr=trs[i]; const cell=k=>tr.querySelector(".c-"+k); let al=p.pk.map(x=>x.a).join(", "); cell("al").textContent=p.pk.length?al:"";
+    ["maj","min","res","hb","call"].forEach(k=>cell(k).innerHTML=""); const rec={locus:p.name,alleles:al,major:"",minor:"",residual:"",hb:"",call:""};
+    if(p.isAmel){ const x=p.pk.find(q=>/^x$/i.test(q.a)), y=p.pk.find(q=>/^y$/i.test(q.a)); if(x&&y){ const a=amelogenin(x.h,y.h); if(a){ cell("call").innerHTML=a.femaleMajor?`Female major, ratio ${fmt(a.ratioFemaleMajor,1)} : 1`:`Male major, ratio ${fmt(a.ratioMaleMajor,1)} : 1`; cell("maj").textContent=a.femaleMajor?"X,X":"X,Y"; cell("min").textContent=a.femaleMajor?"X,Y":"X,X"; rec.call=cell("call").textContent; rec.major=cell("maj").textContent; rec.minor=cell("min").textContent; if(!isNaN(useMx)&&useMx!=null) {} } else cell("call").textContent="Y peak too large for this calculation"; } else if(x&&!y){ cell("call").textContent="No Y: female contributors only"; rec.call=cell("call").textContent; } profileResults.push(rec); return; }
+    if(p.pk.length===0){ profileResults.push(rec); return; }
+    if(p.pk.length>4){ cell("call").innerHTML='<span class="pill warn">&gt;4 alleles: more than two contributors?</span>'; rec.call=">4 alleles"; profileResults.push(rec); return; }
+    if(p.pk.length===1){ cell("call").innerHTML='<span class="pill na">One peak: hom + hom, or masking</span>'; rec.call="One peak"; profileResults.push(rec); return; }
+    const names=p.pk.map(x=>x.a), hs=p.pk.map(x=>x.h); const fixed=(p.pk.length<4&&useMx!=null&&!isNaN(useMx))?useMx:null;
+    const rk=evaluate(hs,fixed); const b=rk[0], s2=rk[1]; const amb=s2&&s2.res<2*b.res+1e-9;
+    cell("maj").textContent=name(b.maj,names); cell("min").textContent=name(b.min,names); cell("res").textContent=fmt(b.res,4);
+    cell("hb").innerHTML=hbPill(b.hb.maj,c.HB,true)+" "+hbPill(b.hb.min,c.HB,true);
+    const hbOk=(b.hb.maj==null||b.hb.maj>=c.HB)&&(b.hb.min==null||b.hb.min>=c.HB);
+    let call=(p.pk.length<4&&fixed==null)?'<span class="pill warn">Need Mx first</span>':amb?`<span class="pill warn">Ambiguous</span> next: ${name(s2.maj,names)} + ${name(s2.min,names)}`:'<span class="pill ok">Clear</span>';
+    if(!hbOk) call+=' <span class="pill bad">Hb fail</span>'; if(hs.some(h=>h<c.ST)) call+=' <span class="pill warn">&lt; ST</span>';
+    cell("call").innerHTML=call; Object.assign(rec,{major:name(b.maj,names),minor:name(b.min,names),residual:fmt(b.res,4),hb:`${fmt(b.hb.maj)} / ${fmt(b.hb.min)}`,call:call.replace(/<[^>]+>/g,"")}); profileResults.push(rec); });
+  const maxAl=Math.max(0,...parsed.map(p=>p.isAmel?0:p.pk.length)); const minNoC=maxAl?Math.ceil(maxAl/2):0;
+  let s="";
+  if(mxs.length){ s+=`<p><strong>Mx from four-peak loci:</strong> ${mxs.map(v=>fmt(v)).join(", ")}<br>Median = <strong>${fmt(auto)}</strong> (ratio ${fmt(auto/(1-auto),1)} : 1)`; const spread=Math.max(...mxs)-Math.min(...mxs); s+=spread>0.1?`<br><span class="pill warn">Spread ${fmt(spread)}</span> Mx varies between loci: check for artefacts, degradation or a third contributor.</p>`:`<br><span class="pill ok">Consistent across loci</span></p>`; }
+  else s+=`<p class="muted">No four-peak loci yet. Enter at least one to estimate Mx automatically, or type an Mx override.</p>`;
+  if(!isNaN(ov)) s+=`<p><span class="pill warn">Using override Mx = ${fmt(useMx)}</span></p>`;
+  s+=`<p><strong>Minimum contributors:</strong> ${minNoC||"n/a"} ${maxAl?`<span class="muted">(most alleles at one locus: ${maxAl})</span>`:""}</p>`;
+  $("#profSummary").innerHTML=s;
+}
+$("#mxOverride").addEventListener("input",renderProfile);
+$("#loadEx").addEventListener("click",()=>{ rows=LECT.map(r=>({...r})); buildProfile(); renderProfile(); });
+$("#loadSGM").addEventListener("click",()=>{ rows=SGM.map(n=>({name:n,text:""})); buildProfile(); renderProfile(); });
+$("#clearProf").addEventListener("click",()=>{ rows=rows.map(r=>({name:r.name,text:""})); buildProfile(); renderProfile(); });
+$("#addLocus").addEventListener("click",()=>{ rows.push({name:"Locus "+(rows.length+1),text:""}); buildProfile(); renderProfile(); });
+$("#exportCsv").addEventListener("click",()=>{ const head=["Locus","Alleles","Major","Minor","Residual","Hb major/minor","Call"]; const lines=[head.join(",")].concat(profileResults.map(r=>[r.locus,r.alleles,r.major,r.minor,r.residual,r.hb,r.call].map(v=>'"'+String(v||"").replace(/"/g,'""')+'"').join(","))); const blob=new Blob([lines.join("\n")],{type:"text/csv"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="mixture_explorer_results.csv"; a.click(); });
+
+/* ---------- Tab 3: checks ---------- */
+const TQ=[["Is the peak above the analytical threshold?","above"],["Is it very sharp and present in every colour channel?","spike"],["Is it broad, at a consistent size, and outside the allele bins?","blob"],["Is it directly under a very tall peak in another colour channel?","pull"],["Is it about 1 bp shorter than a tall allele (shoulder)?","nta"],["Is it one repeat (4 bp) shorter (or longer) than a taller allele?","stut"]];
+function buildTriage(){
+  $("#triage").innerHTML=TQ.map(([q,id],i)=>`<div style="margin:6px 0"><span class="small">${i+1}. ${q}</span><br><select id="tq_${id}" aria-label="${q}"><option value="">Choose</option><option value="y">Yes</option><option value="n">No</option></select></div>`).join("");
+  TQ.forEach(([q,id])=>$("#tq_"+id).addEventListener("change",triage)); triage();
+}
+function triage(){
+  const v=id=>$("#tq_"+id).value; let msg='Answer the questions above.',cls="callout";
+  if(v("above")==="n") msg="Below the analytical threshold: baseline noise. Not called as an allele.";
+  else if(v("spike")==="y") msg="Spike. Same position in all channels. Re-inject the sample; it will not repeat.";
+  else if(v("blob")==="y") msg="Dye blob. Consistent, broad and outside allele bins. Check negative controls.";
+  else if(v("pull")==="y") msg="Pull-up (bleed-through). Check the tall peak, spectral calibration and amplification amount. Confirm it is not in an allele bin.";
+  else if(v("nta")==="y") msg="Split peak from non-template addition (incomplete adenylation). Usually affects several loci. Try less template.";
+  else if(v("stut")==="y") msg="Candidate stutter. Compare its percentage of the parent peak with the validated filter for this locus and allele (Stutter check tool).";
+  else if(["above","spike","blob","pull","nta","stut"].every(k=>v(k)!=="")){ msg="None of the artefact features apply: treat as a candidate allele. If unsure, re-run, re-amplify, compare replicates and record your reasoning."; }
+  $("#triageOut").className=cls; $("#triageOut").textContent=msg;
+}
+function stutterCheck(){ const par=+$("#stParent").value, pk=+$("#stPeak").value, f=+$("#stFilter").value; const o=$("#stOut"); if(!(par>0)||pk<0){ o.className="callout"; o.textContent="Enter a parent height above zero."; return; } const pct=pk/par*100;
+  if(pct<=f){ o.className="callout"; o.innerHTML=`Stutter = ${pct.toFixed(1)} % of the parent. At or below the ${f} % filter: attributable to stutter. In a mixture, a minor allele could still hide here.`; } else { o.className="callout amber"; o.innerHTML=`Stutter = ${pct.toFixed(1)} % of the parent. <strong>Above</strong> the ${f} % filter: not explained by stutter alone. In a mixture this may be a true minor-contributor allele (and raises the contributor count).`; } }
+["stParent","stPeak","stFilter"].forEach(id=>$("#"+id).addEventListener("input",stutterCheck));
+function hbCheck(){ const a=+$("#hb1").value,b=+$("#hb2").value,t=cfg().HB; const o=$("#hbOut"); if(!(a>0&&b>0)){o.className="callout";o.textContent="Enter two peak heights above zero.";return;} const hb=Math.min(a,b)/Math.max(a,b); o.className=hb>=t?"callout":"callout amber"; o.innerHTML=`Hb = ${Math.min(a,b)} / ${Math.max(a,b)} = <strong>${hb.toFixed(2)}</strong>. ${hb>=t?`At or above the ${t} guide: acceptable balance.`:`Below the ${t} guide: imbalanced. Possible mixture, stochastic effects, degradation or an artefact.`}`; }
+["hb1","hb2"].forEach(id=>$("#"+id).addEventListener("input",hbCheck));
+function nocCheck(){ const v=$("#nocIn").value.split(/[\s,;]+/).map(Number).filter(x=>x>0); const o=$("#nocOut"); if(!v.length){o.className="callout";o.textContent="Enter allele counts.";return;} const mx=Math.max(...v); o.className="callout"; o.innerHTML=`Most alleles at one locus: <strong>${mx}</strong>. Minimum contributors = ${mx} / 2 rounded up = <strong>${Math.ceil(mx/2)}</strong>. This is a minimum: shared alleles and drop-out can hide further people.`; }
+$("#nocIn").addEventListener("input",nocCheck);
+
+/* ---------- init ---------- */
+buildAlleleTable(); renderLocus(); buildProfile(); rows=LECT.map(r=>({...r})); buildProfile(); renderProfile(); buildTriage(); stutterCheck(); hbCheck(); nocCheck();
+</script>
+</body>
+</html>
